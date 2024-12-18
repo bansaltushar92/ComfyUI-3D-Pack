@@ -46,7 +46,7 @@ class GSConverterNeRFMarchingCubes(nn.Module):
 
         # nerf renderer
         if not self.opt.force_cuda_rast:
-            self.glctx = dr.RasterizeGLContext()
+            self.glctx = dr.RasterizeCudaContext()
         else:
             self.glctx = dr.RasterizeCudaContext()
         

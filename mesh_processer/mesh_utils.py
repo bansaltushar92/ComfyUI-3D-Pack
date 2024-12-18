@@ -511,7 +511,7 @@ def color_func_to_albedo(mesh, get_rgb_func, texture_resolution=1024, padding=2,
         if force_cuda_rast:
             glctx = dr.RasterizeCudaContext()
         else:
-            glctx = dr.RasterizeGLContext()
+            glctx = dr.RasterizeCudaContext()
     
     # render uv maps
     h = w = texture_resolution

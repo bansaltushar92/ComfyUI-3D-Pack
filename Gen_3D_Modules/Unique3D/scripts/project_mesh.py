@@ -68,7 +68,7 @@ def _warmup(glctx, device=None):
 
 class Pix2FacesRenderer:
     def __init__(self, device="cuda"):
-        self._glctx = dr.RasterizeGLContext(output_db=False, device=device)
+        self._glctx = dr.RasterizeCudaContext()
         self.device = device
         _warmup(self._glctx, device)
 
@@ -505,7 +505,7 @@ def multiview_color_projection_texture(meshes: Meshes, original_mesh: Mesh, imag
     if force_cuda_rast:
         glctx = dr.RasterizeCudaContext()
     else:
-        glctx = dr.RasterizeGLContext()
+        glctx = dr.RasterizeCudaContext()
         
     print(f"########## original_color: {original_color.shape}; texture_values: {texture_values.shape}")
 

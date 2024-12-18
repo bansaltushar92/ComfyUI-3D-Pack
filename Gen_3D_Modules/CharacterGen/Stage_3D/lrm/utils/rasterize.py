@@ -14,7 +14,7 @@ class NVDiffRasterizerContext:
     ) -> Union[dr.RasterizeGLContext, dr.RasterizeCudaContext]:
         context_type = "cuda"  # This will throw: RuntimeError: Error building extension 'nvdiffrast_plugin', 'cl.exe' is not recognized as an internal or external command
         if context_type == "gl":
-            return dr.RasterizeGLContext(device=device)
+            return dr.RasterizeCudaContext(device=device)
         elif context_type == "cuda":
             return dr.RasterizeCudaContext(device=device)
         else:
