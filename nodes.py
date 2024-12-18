@@ -63,8 +63,6 @@ from LGM.mvdream.pipeline_mvdream import MVDreamPipeline
 from LGM.large_multiview_gaussian_model import LargeMultiviewGaussianModel
 from LGM.nerf_marching_cubes_converter import GSConverterNeRFMarchingCubes
 from TripoSR.system import TSR
-from StableFast3D.sf3d import utils as sf3d_utils
-from StableFast3D.sf3d.system import SF3D
 from InstantMesh.utils.camera_util import oribt_camera_poses_to_input_cameras
 from CRM.model.crm.model import ConvolutionalReconstructionModel
 from CRM.model.crm.sampler import CRMSampler
@@ -1960,126 +1958,6 @@ class TripoSR:
         image = Image.fromarray((image * 255.0).astype(np.uint8))
         return image
     
-class Load_SF3D_Model:
-    checkpoints_dir = "StableFast3D"
-    default_ckpt_name = "model.safetensors"
-    default_repo_id = "stabilityai/stable-fast-3d"
-    config_path = "StableFast3D_config.yaml"
-    
-    @classmethod
-    def INPUT_TYPES(cls):
-        cls.checkpoints_dir_abs = os.path.join(CKPT_ROOT_PATH, cls.checkpoints_dir)
-        all_models_names = get_list_filenames(cls.checkpoints_dir_abs, SUPPORTED_CHECKPOINTS_EXTENSIONS)
-        if cls.default_ckpt_name not in all_models_names:
-            all_models_names += [cls.default_ckpt_name]
-            
-        cls.config_path_abs = os.path.join(CONFIG_ROOT_PATH, cls.config_path)
-        return {
-            "required": {
-                "model_name": (all_models_names, ),
-            },
-        }
-    
-    RETURN_TYPES = (
-        "SF3D_MODEL",
-    )
-    RETURN_NAMES = (
-        "sf3d_model",
-    )
-    FUNCTION = "load_SF3D"
-    CATEGORY = "Comfy3D/Import|Export"
-    
-    def load_SF3D(self, model_name):
-        
-        ckpt_path = resume_or_download_model_from_hf(self.checkpoints_dir_abs, self.default_repo_id, model_name, self.__class__.__name__)
-
-        sf3d_model = SF3D.from_pretrained(
-            config_path=self.config_path_abs,
-            weight_path=ckpt_path
-        )
-        
-        sf3d_model.eval()
-        sf3d_model.to(DEVICE)
-        
-        cstr(f"[{self.__class__.__name__}] loaded model ckpt from {ckpt_path}").msg.print()
-        
-        return (sf3d_model, )
-    
-class StableFast3D:
-
-    @classmethod
-    def INPUT_TYPES(s):
-        return {
-            "required": {
-                "sf3d_model": ("SF3D_MODEL", ),
-                "reference_image": ("IMAGE",),
-                "reference_mask": ("MASK",),
-                "texture_resolution": ("INT", {"default": 1024, "min": 128, "max": 8192}),
-                "remesh_option": (["None", "Triangle"], ),
-            }
-        }
-
-    RETURN_TYPES = (
-        "MESH",
-    )
-    RETURN_NAMES = (
-        "mesh",
-    )
-    
-    FUNCTION = "run_SF3D"
-    CATEGORY = "Comfy3D/Algorithm"
-
-    @torch.no_grad()
-    def run_SF3D(self, sf3d_model, reference_image, reference_mask, texture_resolution, remesh_option):
-        single_image = torch_imgs_to_pils(reference_image, reference_mask)[0]
-        
-        with torch.autocast(device_type=DEVICE_STR, dtype=WEIGHT_DTYPE):
-            model_batch = self.create_batch(single_image)
-            model_batch = {k: v.cuda() for k, v in model_batch.items()}
-            trimesh_mesh, _ = sf3d_model.generate_mesh(
-                model_batch, texture_resolution, remesh_option
-            )
-        mesh = Mesh.load_trimesh(given_mesh=trimesh_mesh[0])
-
-        return (mesh,)
-    
-    # Default model are trained on images with this background 
-    def create_batch(self, input_image: Image):
-        COND_WIDTH = 512
-        COND_HEIGHT = 512
-        COND_DISTANCE = 1.6
-        COND_FOVY_DEG = 40
-        BACKGROUND_COLOR = [0.5, 0.5, 0.5]
-
-        # Cached. Doesn't change
-        c2w_cond = sf3d_utils.default_cond_c2w(COND_DISTANCE)
-        intrinsic, intrinsic_normed_cond = sf3d_utils.create_intrinsic_from_fov_deg(
-            COND_FOVY_DEG, COND_HEIGHT, COND_WIDTH
-        )
-        
-        img_cond = (
-            torch.from_numpy(
-                np.asarray(input_image.resize((COND_WIDTH, COND_HEIGHT))).astype(np.float32)
-                / 255.0
-            )
-            .float()
-            .clip(0, 1)
-        )
-        mask_cond = img_cond[:, :, -1:]
-        rgb_cond = torch.lerp(
-            torch.tensor(BACKGROUND_COLOR)[None, None, :], img_cond[:, :, :3], mask_cond
-        )
-
-        batch_elem = {
-            "rgb_cond": rgb_cond,
-            "mask_cond": mask_cond,
-            "c2w_cond": c2w_cond.unsqueeze(0),
-            "intrinsic_cond": intrinsic.unsqueeze(0),
-            "intrinsic_normed_cond": intrinsic_normed_cond.unsqueeze(0),
-        }
-        # Add batch dim
-        batched = {k: v.unsqueeze(0) for k, v in batch_elem.items()}
-        return batched
     
 class Load_CRM_MVDiffusion_Model:
     checkpoints_dir = "CRM"
