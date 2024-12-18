@@ -11,7 +11,7 @@ class NVDiffRasterizerContext:
 
     def initialize_context(
         self, context_type: str, device: torch.device
-    ) -> Union[dr.RasterizeGLContext, dr.RasterizeCudaContext]:
+    ) -> Union[dr.RasterizeCudaContext]:
         context_type = "cuda"  # This will throw: RuntimeError: Error building extension 'nvdiffrast_plugin', 'cl.exe' is not recognized as an internal or external command
         if context_type == "gl":
             return dr.RasterizeCudaContext(device=device)
